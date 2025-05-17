@@ -3,7 +3,12 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
-import { AuthModule } from './auth/auth.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { UsersModule } from './modules/users/users.module';
+import { CommonModule } from './common/common.module';
+import { APP_GUARD } from '@nestjs/core';
+import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
+import { User, UserSchema } from './modules/auth/schemas/user.schema';
 
 @Module({
   imports: [
@@ -24,9 +29,21 @@ import { AuthModule } from './auth/auth.module';
         };
       },
     }),
+    MongooseModule.forFeature([
+      { name: User.name, schema: UserSchema }
+    ]),
+
     AuthModule,
+    UsersModule,
+    CommonModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+  ],
 })
 export class AppModule {}

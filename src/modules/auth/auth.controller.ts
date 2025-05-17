@@ -15,8 +15,9 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { VerifyCodeDto } from './dto/verify-code.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
-import { GetUser } from '../common/decorators/get-user.decorator';
+import { GetUser } from '../../common/decorators/get-user.decorator';
 import { ResetPasswordGuard } from './guards/reset-password.guard';
+import { Public } from '../../common/decorators/public.decorator';
 
 @Controller('auth')
 @UsePipes(
@@ -25,13 +26,14 @@ import { ResetPasswordGuard } from './guards/reset-password.guard';
 export class AuthController {
   constructor(private authService: AuthService) {}
 
+  @Public()
   @Post('signup')
   async signup(
     @Body() dto: SignUpDto,
   ): Promise<AuthResponseDto> {
     return this.authService.signup(dto);
   }
-
+  @Public()
   @Post('signin')
   @HttpCode(HttpStatus.OK)
   async signIn(
@@ -40,6 +42,7 @@ export class AuthController {
     return this.authService.signIn(dto);
   }
 
+  @Public()
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   async forgotPassword(
@@ -48,6 +51,7 @@ export class AuthController {
     return this.authService.forgotPassword(dto);
   }
 
+  @Public()
   @Post('verify-code')
   @HttpCode(HttpStatus.OK)
   async verifyCode(

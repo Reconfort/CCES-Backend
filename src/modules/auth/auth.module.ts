@@ -5,10 +5,12 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { User, UserSchema } from './schemas/user.schema';
 import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PasswordReset, PasswordResetSchema } from './schemas/password-reset.schema';
 import { JwtStrategy } from './strategies/jwt.strategy';
-import { EmailService } from '../common/services/email.service';
+import { EmailService } from '../../common/services/email.service';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { ResetPasswordGuard } from './guards/reset-password.guard';
 
 @Module({
   imports: [
@@ -16,6 +18,7 @@ import { EmailService } from '../common/services/email.service';
       defaultStrategy: 'jwt',
     }),
     JwtModule.registerAsync({
+      imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
         return {
@@ -32,7 +35,13 @@ import { EmailService } from '../common/services/email.service';
     ]),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, EmailService],
-  exports: [JwtStrategy, PassportModule],
+  providers: [AuthService, JwtStrategy, EmailService, JwtAuthGuard, ResetPasswordGuard,
+  ],
+  exports: [
+    JwtStrategy,
+    PassportModule,
+    JwtAuthGuard,
+    JwtModule
+  ],
 })
 export class AuthModule {}

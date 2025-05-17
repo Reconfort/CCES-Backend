@@ -37,4 +37,21 @@ export class EmailService {
       `,
     });
   }
+
+  async sendAdminAccountCredentials(email: string, name: string, password: string): Promise<void> {
+    await this.transporter.sendMail({
+      from: process.env.EMAIL_FROM || 'reconfortdanny@gmail.com',
+      to: email,
+      subject: 'Your Admin Account Credentials',
+      html: `
+        <h1>Welcome to the Admin Team!</h1>
+        <p>Hello ${name},</p>
+        <p>An admin account has been created for you. Here are your login credentials:</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Password:</strong> ${password}</p>
+        <p><strong>Important:</strong> For security reasons, please change your password after your first login.</p>
+        <p>If you have any questions, please contact the system administrator.</p>
+      `,
+    });
+  }
 }

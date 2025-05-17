@@ -9,6 +9,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import * as bcrypt from 'bcryptjs';
 
 import { User, UserDocument } from './schemas/user.schema';
+import { UserRole, UserStatus } from '../../common/enums/user-role';
 import { Model } from 'mongoose';
 import { JwtService } from '@nestjs/jwt';
 import { SignUpDto } from './dto/sign-up.dto';
@@ -18,9 +19,9 @@ import {
   PasswordReset,
   PasswordResetDocument,
 } from './schemas/password-reset.schema';
-import { EmailService } from '../common/services/email.service';
 import { VerifyCodeDto } from './dto/verify-code.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { EmailService } from '../../common/services/email.service';
 
 @Injectable()
 export class AuthService {
@@ -32,13 +33,13 @@ export class AuthService {
     private emailService: EmailService,
   ) {}
 
-  // Create User
+  // Create Regular User
   async signup(
     signUpDto: SignUpDto,
-  ): Promise<{ token: string; message: string }> {
+  ): Promise<{ token: string; message: string; user: any }> {
     const { name, email, password } = signUpDto;
 
-    // Check if user exists
+    // Check if a user exists
     const existingUser = await this.userModel.findOne({ email });
     if (existingUser) {
       throw new ConflictException('Email already in use');
@@ -50,19 +51,39 @@ export class AuthService {
       name,
       email,
       password: hashedPassword,
+      role: UserRole.USER,
+      status: UserStatus.ACTIVE,
       emailVerified: false,
+      permissions: {}, // Regular users have no special permissions
     });
 
     const token = this.jwtService.sign({
-      id: user._id,
+      sub: user._id,
       email: user.email,
+      role: user.role,
     });
 
-    return { token, message: 'User registered successfully' };
+    // Return user without password
+    const userResponse = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      status: user.status,
+      emailVerified: user.emailVerified,
+    };
+
+    return {
+      token,
+      message: 'User registered successfully',
+      user: userResponse,
+    };
   }
 
   // Log User In
-  async signIn(dto: SignInDto): Promise<{ token: string; message: string }> {
+  async signIn(
+    dto: SignInDto,
+  ): Promise<{ token: string; message: string; user: any }> {
     if (!dto.password || !dto.email) {
       throw new BadRequestException('Email and password must be provided');
     }
@@ -75,6 +96,13 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    // Check if user account is inactive
+    if (user.status === UserStatus.INACTIVE) {
+      throw new UnauthorizedException(
+        'Your account is inactive. Please contact an administrator.',
+      );
+    }
+
     const valid = await bcrypt.compare(dto.password, user.password);
     if (!valid) {
       throw new UnauthorizedException('Invalid credentials');
@@ -83,8 +111,25 @@ export class AuthService {
     if (!user._id) {
       throw new UnauthorizedException('Invalid user ID');
     }
-    const token = this.signToken(user._id.toString(), user.email);
-    return { token, message: 'Logged in successfully' };
+
+    const token = this.jwtService.sign({
+      sub: user._id.toString(),
+      email: user.email,
+      role: user.role,
+    });
+
+    // Return user without a password
+    const userResponse = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      status: user.status,
+      permissions: user.permissions,
+      emailVerified: user.emailVerified,
+    };
+
+    return { token, message: 'Logged in successfully', user: userResponse };
   }
 
   // Send password reset code
@@ -109,7 +154,6 @@ export class AuthService {
       code: hashedCode,
       used: false,
     });
-    console.log(`Stored code ${code} for user ${user.id}`);
 
     // Send the code via email
     await this.emailService.sendPasswordResetCode(email, code);
@@ -118,17 +162,15 @@ export class AuthService {
   }
 
   // Verify reset code and provide token
-  async verifyCode(dto: VerifyCodeDto): Promise<{ token: string; message: string }> {
+  async verifyCode(
+    dto: VerifyCodeDto,
+  ): Promise<{ token: string; message: string }> {
     const { email, code } = dto;
-
-    console.log('=== Starting verification process ===');
-    console.log('Received:', { email, code });
 
     const user = await this.userModel.findOne({ email });
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    console.log('Found user:', { id: user._id, email: user.email });
 
     // Find the most recent reset entry for this user
     const resetEntry = await this.passwordResetModel
@@ -139,71 +181,48 @@ export class AuthService {
       .sort({ createdAt: -1 }); // Get the most recent one
 
     if (!resetEntry) {
-      console.log('No reset entry found for user');
-      // Let's check if there are any entries at all
-      const allEntries = await this.passwordResetModel.find({ user: user._id });
-      console.log('All entries for user:', allEntries.map(entry => ({
-        id: entry._id,
-        createdAt: entry.createdAt,
-        used: entry.used
-      })));
-
-      throw new BadRequestException('No valid reset code found. Please request a new code.');
+      throw new BadRequestException(
+        'No valid reset code found. Please request a new code.',
+      );
     }
 
-    console.log('Found reset entry:', {
-      id: resetEntry._id,
-      createdAt: resetEntry.createdAt,
-      used: resetEntry.used,
-      ageInMinutes: (Date.now() - resetEntry.createdAt.getTime()) / 60000
-    });
+    // Verify the code
+    const codeValid = await bcrypt.compare(code, resetEntry.code);
+    if (!codeValid) {
+      throw new BadRequestException('Invalid reset code');
+    }
 
-    // Verify the code first before checking expiry
-    try {
-      const codeValid = await bcrypt.compare(code, resetEntry.code);
-      console.log('Code validation result:', codeValid);
+    // Check if code has expired (1-hour validity)
+    const now = new Date();
+    const expiryTime = new Date(resetEntry.createdAt.getTime() + 3600000);
 
-      if (!codeValid) {
-        console.log('Invalid code provided');
-        throw new BadRequestException('Invalid reset code');
-      }
-
-      // Only check expiry if code is valid
-      const now = new Date();
-      const expiryTime = new Date(resetEntry.createdAt.getTime() + 3600000);
-
-      if (now > expiryTime) {
-        console.log('Code has expired');
-        resetEntry.used = true;
-        await resetEntry.save();
-        throw new BadRequestException('Reset code has expired. Please request a new code.');
-      }
-
-      // If we get here, code is valid and not expired
+    if (now > expiryTime) {
       resetEntry.used = true;
       await resetEntry.save();
-
-      const resetToken = this.jwtService.sign(
-        {
-          sub: user._id,
-          email: user.email,
-          purpose: 'password-reset'
-        },
-        { expiresIn: '15m' }
+      throw new BadRequestException(
+        'Reset code has expired. Please request a new code.',
       );
-
-      return { token: resetToken, message: 'Code verified successfully' };
-
-    } catch (error) {
-      console.error('Verification error:', error);
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      throw new BadRequestException('Error validating reset code');
     }
+
+    // Mark code as used
+    resetEntry.used = true;
+    await resetEntry.save();
+
+    // Generate reset token with 15 min validity
+    const resetToken = this.jwtService.sign(
+      {
+        sub: user._id,
+        email: user.email,
+        purpose: 'password-reset',
+      },
+      { expiresIn: '15m' },
+    );
+
+    return { token: resetToken, message: 'Code verified successfully' };
   }
 
   // Reset password using token
+
   async resetPassword(
     userId: string,
     dto: ResetPasswordDto,
@@ -214,25 +233,30 @@ export class AuthService {
       throw new BadRequestException('Passwords do not match');
     }
 
-    const user = await this.userModel.findById(userId);
-    if (!user) {
-      throw new NotFoundException('User not found');
+    // Ensure a proper ID format and handle potential invalid ObjectId
+    try {
+      const user = await this.userModel.findById(userId).exec();
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      // Use the found user document to update
+      user.password = await bcrypt.hash(password, 10);
+      await user.save();
+
+      // Clean up used reset codes
+      await this.passwordResetModel.deleteMany({ user: user._id });
+
+      return { message: 'Password reset successfully' };
+    } catch (error) {
+      if (error.name === 'CastError') {
+        throw new BadRequestException('Invalid user ID format');
+      }
+      throw error;
     }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    await this.userModel.updateOne(
-      { _id: userId },
-      { $set: { password: hashedPassword } },
-    );
-
-    // Clean up used reset codes
-    await this.passwordResetModel.deleteMany({ user: userId });
-
-    return { message: 'Password reset successfully' };
   }
 
-  private signToken(userId: string, email: string): string {
-    return this.jwtService.sign({ sub: userId, email });
+  private signToken(userId: string, email: string, role: UserRole): string {
+    return this.jwtService.sign({ sub: userId, email, role });
   }
 }
