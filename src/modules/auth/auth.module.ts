@@ -35,13 +35,16 @@ import { ResetPasswordGuard } from './guards/reset-password.guard';
     ]),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, EmailService, JwtAuthGuard, ResetPasswordGuard,
-  ],
+  providers: [AuthService, JwtStrategy, EmailService, JwtAuthGuard, ResetPasswordGuard],
   exports: [
     JwtStrategy,
     PassportModule,
     JwtAuthGuard,
-    JwtModule
+    JwtModule,
+    MongooseModule.forFeature([
+      { name: User.name, schema: UserSchema },
+      { name: PasswordReset.name, schema: PasswordResetSchema },
+    ]),
   ],
 })
 export class AuthModule {}

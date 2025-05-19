@@ -27,6 +27,13 @@ import {
       if (user.role === 'admin') return this.ticketModel.find().exec();
       return this.ticketModel.find({ user: user._id }).exec();
     }
+
+    async findTicketWithUser(ticketId: string) {
+      const ticket = await this.ticketModel.findById(ticketId).populate('userId', '-password -__v').exec();
+      if (!ticket) throw new NotFoundException('Ticket not found');
+  
+      return ticket;
+    }
   
     async findOne(id: string, user: any) {
       const t = await this.ticketModel.findById(id).exec();
@@ -47,6 +54,10 @@ import {
       await this.findOne(id, user);
       await this.ticketModel.findByIdAndDelete(id).exec();
       return { deleted: true };
+    }
+
+    async findByUserId(userId: string) {
+      return this.ticketModel.find({ user: new Types.ObjectId(userId) }).exec();
     }
   }
   

@@ -257,6 +257,11 @@ export class AuthService {
   }
 
   private signToken(userId: string, email: string, role: UserRole): string {
-    return this.jwtService.sign({ sub: userId, email, role });
+    return this.jwtService.sign({ 
+      sub: userId, 
+      email, 
+      role,
+      status: UserStatus.ACTIVE // Include status as well
+    });
   }
 }
