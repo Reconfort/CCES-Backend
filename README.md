@@ -6,6 +6,9 @@ A comprehensive backend system for managing citizen complaints and engagement, b
 
 The Citizen Complaints and Engagement System (CCES) is a robust platform designed to facilitate efficient communication between citizens and government institutions. It provides a structured way to submit, track, and manage complaints while ensuring transparency and accountability.
 
+## Plan
+https://hyper-impulse-d65.notion.site/Citizen-Complaints-and-Engagement-System-383a63ae4f4f4afc9cebb51868e95381
+
 ## Features
 
 - **User Management**
@@ -46,6 +49,8 @@ The Citizen Complaints and Engagement System (CCES) is a robust platform designe
 - Node.js (v14 or higher)
 - MongoDB
 - Google Gemini API Key
+
+
 
 ## Installation
 
