@@ -11,6 +11,7 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { User, UserSchema } from './modules/auth/schemas/user.schema';
 import { InstitutionModule } from './modules/institution/institution.module';
 import { TicketsModule } from './modules/tickets/tickets.module';
+import { CategoryModule } from './modules/category/category.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { TicketsModule } from './modules/tickets/tickets.module';
     UsersModule,
     InstitutionModule,
     TicketsModule,
+    CategoryModule,
     CommonModule,
   ],
   controllers: [AppController],
