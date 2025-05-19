@@ -1,7 +1,7 @@
 import { ChatSession, GenerativeModel, GoogleGenerativeAI } from '@google/generative-ai';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { GetAIMessageDTO } from './dto/get-ai-response.dto';
+import { GetAIMessageDTO } from './model/get-ai-response.dto';
 import { v4 } from 'uuid';
 
 const GEMINI_MODEL = 'gemini-1.5-flash';

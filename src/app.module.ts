@@ -51,6 +51,9 @@ import { GeminiModule } from './modules/gemini/gemini.module';
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+      useValue: {
+        exclude: ['/api/v1/gemini'],
+      },
     },
   ],
 })
